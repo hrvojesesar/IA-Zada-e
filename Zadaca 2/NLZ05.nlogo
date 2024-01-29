@@ -1,69 +1,160 @@
-globals [dirt-count]
+globals [ samples1 model templist closeCords minDist i index x-pos y-pos done? ]
 
 to setup
   clear-all
-  set dirt-count 0
+  clear-output
+  create-turtles 2
+  [
+    set samples1 []
+    set model []
+    set closeCords []
+  ]                      ;; kreiraju se 2 rovera
 
-  create-turtles 1 [
-    set shape "bulldozer top"
+  ask turtle 0
+  [
+    set color brown
+    setxy -8 -6          ;; prvi rover se postavlja u donju lijevu celiju
+    set heading 90       ;; i okrece udesno
   ]
 
-  ask turtles [
-    setxy -6 -6
-    set color blue
-    set heading 90
+  ask turtle 1
+  [
+    set color green
+    setxy 8 6            ;; drugi rover se postavlja u gornju desnu celiju
+    set heading 270      ;; i okrece ulijevo
   ]
 
-  ask n-of 15 patches [
-    set pcolor grey
-  ]
-
+  ;; postavljanje "stijena" u okružanju
+  ask n-of 5 patches [ set pcolor orange ]
+  ask n-of 5 patches [ set pcolor red ]
+  ask n-of 5 patches [ set pcolor blue ]
+  set samples1 (list)  ; Inicijalizacija prazne liste
+  set done? false       ; Inicijalizacija varijable done?
   reset-ticks
 end
 
+
 to go
-  while [any? patches with [pcolor = grey]] [
-    ask turtles [
-      intelligent-move
-      clean
-    ]
-    generate-dirt
-    tick
+  if (length samples1 = 2) and (empty? model) [
+    show "Job done"
+    stop
   ]
-  show "Done!"
-  stop
+  ask turtle 0 [ walk1 ]            ;; pokrece se funkcija walk1 za prvi rover
+  wait 0.1
+  ask turtle 1 [ walk2 ]            ;; pokrece se funkcija walk2 za drugi rover
+
+  tick
 end
 
-to intelligent-move
-  let nearest-dirt min-one-of patches with [pcolor = grey] [distance myself]
-  face nearest-dirt
-  fd 1
+to walk1  ;; funkcija prvog rovera
+
+  if length samples1 = 2 [
+    stop
+  ]
+
+  if [pcolor] of patch-here = orange [
+    handle-sample "Orange"
+  ]
+
+  ;; prvi rover ne može percipirati crvenu stijenu
+  ;;if [pcolor] of patch-here = red [
+  ;;  handle-sample "Red"
+  ;;]
+
+  if [pcolor] of patch-here = blue [
+    handle-sample "Blue"
+  ]
+
+  move-forward
+
 end
 
-to clean
-  ifelse [pcolor] of patch-here = grey [
-    set dirt-count dirt-count + 1
-    type (word "Dirt: " dirt-count) print ""
-    wait 0.3
-    set pcolor black
+to handle-sample [sample-color]
+  set templist []
+  if not member? sample-color samples1 [
+    set samples1 lput sample-color samples1
+    set templist lput xcor templist
+    set templist lput ycor templist
+    set model lput templist model
+    show samples1
+  ]
+end
+
+to move-forward
+  ifelse (xcor = 8) and (heading = 90) [
+    ifelse (ycor = 8) [
+      show "Done"
+    ] [
+      set heading 0
+      fd 1
+      set heading 270
+    ]
   ] [
-    if (xcor = 6) and (ycor = 6) [
-      setxy -6 -6
+    ifelse (xcor = -8) and (heading = 270) [
+      set heading 0
+      fd 1
+      set heading 90
+    ] [
+      fd 1
     ]
   ]
 end
 
-to generate-dirt
-  let dirt-probability random 100
-  if dirt-probability >= 95 [
-    ask n-of 1 patches with [pcolor != grey] [set pcolor grey]
+
+to walk2
+  if not empty? model [
+    set closeCords item 0 model
+    find-closest-rock
+    move-to-closest-rock
+    collect-rock
+  ]
+end
+
+
+to find-closest-rock
+  set minDist 9999
+  set i 0
+  foreach model [
+    xy ->
+    if distance patch item 0 xy item 1 xy < minDist [
+      set minDist distance patch item 0 xy item 1 xy
+      set closeCords xy
+      set index i
+    ]
+    set i (i + 1)
+  ]
+end
+
+to move-to-closest-rock
+  set minDist 9999
+  set i 0
+  set x-pos item 0 closeCords
+  set y-pos item 1 closeCords
+  face patch x-pos y-pos
+  ifelse distancexy x-pos y-pos > 1 [
+    fd 1
+  ] [
+    fd distancexy x-pos y-pos
+  ]
+end
+
+to collect-rock
+  let targetPatch patch-at x-pos y-pos
+  if pxcor = x-pos and pycor = y-pos [
+    set model remove-item index model
+    ifelse pcolor = blue [
+      show "Blue rock picked up"
+    ] [
+      show "Orange rock picked up"
+    ]
+    set pcolor black
   ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-608
+728
 409
 -1
 -1
@@ -77,8 +168,8 @@ GRAPHICS-WINDOW
 1
 1
 1
--6
-6
+-8
+8
 -6
 6
 0
@@ -122,23 +213,12 @@ NIL
 1
 
 @#$#@#$#@
-## OPIS MODELA
+## OPIS PRIMJERA
+U ovom primjeru je ponovno opisan rad agenata koji upravljaju roverima na Marsu, a svaki od njih ima zadatak prikupljanje uzoraka određenih stijena. Roveri se kreću unaprijed definiranim putanjama i ukoliko naiđu na stijenu odgovarajuće vrste, uzimaju njen uzorak.  
 
-Primjer simulira rad agenta koji pokreće usisivač u pravokutnoj prostoriji. Na početku se postavlja "prljavština" u 15 nasumično odabranih ćelija prostorije (tj. ćelije se oboje sivo). 
-
-Ukoliko usisivač, prilikom kretanja, naiđe na prljavštinu očisti je (tj. ćelija se oboji crno) i ispisuje se poruka o pronađenoj prljavštini. Nasumično se u prostoriji pojavljuje nova prljavština. Nakon obilaska cijele prostorije usisivač se vraća na početnu poziciju i nastavlja sa čišćenjem.  
-
-Nakon što usisivač počisti cijelu prostoriju, simulacija se zaustavlja.  
-
-## VRSTA OKRUŽENJA
-
-Po kriteriju **determinističnosti** ovo je **stohastičko** okruženje jer nakon primjene određene akcije agenta postoji nesigurnost oko novog stanja okruženja. 
-
-U ovom primjeru nesigurnost je uzrokovana nasumičnim pojavljivanjem dodatne prljavštine u prostoriji.
-  
-## KAKO KORISTITI MODEL
-
-Potrebno je smanjiti brzinu izmjene otkucaja (klizač *ticks* iznad prozora simulacije) kako bi se mogla pratiti simulacija.
+## VRSTA INTERAKCIJE
+Ciljevi agenata su kompatibilni a količina raspoloživih resursa u okruženju je dovoljna za sve agente. Za razliku od prethodnog primjera, sposobnosti pojedinih agenata nisu dovoljne da pojedinačno ostvare svoj cilj. Mogu ga ostvariti samo suradnjom.
+Ovaj tip interakcije je jednostavna suradnja. Jednostavna suradnja sastoji se od jednostavnog zbrajanja vještina pojedinih agenata, bez zahtjeva za dodatnim aktivnostima koordinacije među uključenim agentima.
 @#$#@#$#@
 default
 true
@@ -173,38 +253,6 @@ Circle -7500403 true true 110 127 80
 Circle -7500403 true true 110 75 80
 Line -7500403 true 150 100 80 30
 Line -7500403 true 150 100 220 30
-
-bulldozer top
-true
-0
-Rectangle -7500403 true true 195 60 255 255
-Rectangle -16777216 false false 195 60 255 255
-Rectangle -7500403 true true 45 60 105 255
-Rectangle -16777216 false false 45 60 105 255
-Line -16777216 false 45 75 255 75
-Line -16777216 false 45 105 255 105
-Line -16777216 false 45 60 255 60
-Line -16777216 false 45 240 255 240
-Line -16777216 false 45 225 255 225
-Line -16777216 false 45 195 255 195
-Line -16777216 false 45 150 255 150
-Polygon -1184463 true true 90 60 75 90 75 240 120 255 180 255 225 240 225 90 210 60
-Polygon -16777216 false false 225 90 210 60 211 246 225 240
-Polygon -16777216 false false 75 90 90 60 89 246 75 240
-Polygon -16777216 false false 89 247 116 254 183 255 211 246 211 211 90 210
-Rectangle -16777216 false false 90 60 210 90
-Rectangle -1184463 true true 180 30 195 90
-Rectangle -16777216 false false 105 30 120 90
-Rectangle -1184463 true true 105 45 120 90
-Rectangle -16777216 false false 180 45 195 90
-Polygon -16777216 true false 195 105 180 120 120 120 105 105
-Polygon -16777216 true false 105 199 120 188 180 188 195 199
-Polygon -16777216 true false 195 120 180 135 180 180 195 195
-Polygon -16777216 true false 105 120 120 135 120 180 105 195
-Line -1184463 true 105 165 195 165
-Circle -16777216 true false 113 226 14
-Polygon -1184463 true true 105 15 60 30 60 45 240 45 240 30 195 15
-Polygon -16777216 false false 105 15 60 30 60 45 240 45 240 30 195 15
 
 butterfly
 true
@@ -321,38 +369,6 @@ Rectangle -7500403 true true 45 120 255 285
 Rectangle -16777216 true false 120 210 180 285
 Polygon -7500403 true true 15 120 150 15 285 120
 Line -16777216 false 30 120 270 120
-
-lander
-true
-0
-Polygon -7500403 true true 45 75 150 30 255 75 285 225 240 225 240 195 210 195 210 225 165 225 165 195 135 195 135 225 90 225 90 195 60 195 60 225 15 225 45 75
-
-lander 2
-true
-0
-Polygon -7500403 true true 135 205 120 235 180 235 165 205
-Polygon -16777216 false false 135 205 120 235 180 235 165 205
-Line -7500403 true 75 30 195 30
-Polygon -7500403 true true 195 150 210 165 225 165 240 150 240 135 225 120 210 120 195 135
-Polygon -16777216 false false 195 150 210 165 225 165 240 150 240 135 225 120 210 120 195 135
-Polygon -7500403 true true 75 75 105 45 195 45 225 75 225 135 195 165 105 165 75 135
-Polygon -16777216 false false 75 75 105 45 195 45 225 75 225 120 225 135 195 165 105 165 75 135
-Polygon -16777216 true false 217 90 210 75 180 60 180 90
-Polygon -16777216 true false 83 90 90 75 120 60 120 90
-Polygon -16777216 false false 135 165 120 135 135 75 150 60 165 75 180 135 165 165
-Circle -7500403 true true 120 15 30
-Circle -16777216 false false 120 15 30
-Line -7500403 true 150 0 150 45
-Polygon -1184463 true false 90 165 105 210 195 210 210 165
-Line -1184463 false 210 165 245 239
-Line -1184463 false 237 221 194 207
-Rectangle -1184463 true false 221 245 261 238
-Line -1184463 false 90 165 55 239
-Line -1184463 false 63 221 106 207
-Rectangle -1184463 true false 39 245 79 238
-Polygon -16777216 false false 90 165 105 210 195 210 210 165
-Rectangle -16777216 false false 221 237 262 245
-Rectangle -16777216 false false 38 237 79 245
 
 leaf
 false
@@ -482,16 +498,6 @@ Polygon -10899396 true false 105 90 75 75 55 75 40 89 31 108 39 124 60 105 75 10
 Polygon -10899396 true false 132 85 134 64 107 51 108 17 150 2 192 18 192 52 169 65 172 87
 Polygon -10899396 true false 85 204 60 233 54 254 72 266 85 252 107 210
 Polygon -7500403 true true 119 75 179 75 209 101 224 135 220 225 175 261 128 261 81 224 74 135 88 99
-
-vacuum
-true
-0
-Polygon -13345367 true false 225 270 225 30 105 45 105 255 225 270 225 270
-Circle -5825686 true false 195 195 60
-Circle -5825686 true false 195 45 60
-Rectangle -5825686 true false 45 120 90 240
-Polygon -8630108 true false 60 120 60 90 90 60 105 60 105 75 90 75 75 90 75 120
-Rectangle -8630108 true false 60 135 75 225
 
 wheel
 false

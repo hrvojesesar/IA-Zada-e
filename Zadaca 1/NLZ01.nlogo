@@ -1,116 +1,179 @@
-globals [new-products products badx bady history stop-flag failCounter]
+turtles-own [
+  shopping-list
+  shopping-cart
+  store-layout
+  temp-list
+  cur-x
+  cur-y
+  closest-pos
+  min-dist
+  idx
+]
+
+globals [
+  color-map
+]
 
 to setup
   clear-all
-  set new-products 0
-  set products 0
-  set failCounter 0
-  set stop-flag FALSE
-  set badx 6
-  set bady 5
-  set history []
+  reset-ticks
 
-  ask patch 6 6 [
-    set pcolor green
+  create-turtles 1
+  [
+    set shopping-list []
+    set shopping-cart []
+    set color-map []
+    set temp-list []
+    set store-layout []
+    generate-random-shopping-list
+    setxy -8 -6
+    set heading 90
+    show shopping-list
   ]
 
-  draw-track
-  reset-ticks
+  generate-single-item
+  ask turtle 0
+  [
+    create-store-layout
+  ]
 end
 
 to go
-  ifelse not stop-flag [
-    ask turtles [
-      walk
+  tick
+  if empty? color-map [
+    stop
+  ]
+  ask turtles [
+    move-around
+    buy-item
+  ]
+end
+
+to generate-random-shopping-list
+  let colors [["Orange" orange] ["Red" red] ["Green" green] ["Blue" blue] ["Grey" grey] ["Yellow" yellow] ["White" white]]
+  let max-items 7  ;; Maximum number of items in the shopping list
+
+  while [length shopping-list < (1 + random max-items)] [
+    let [new-color new-pcolor] one-of colors
+    if not (member? new-color shopping-list) [
+      set shopping-list lput new-color shopping-list
+      set color-map lput new-pcolor color-map
     ]
+  ]
+end
 
-    set history sort history
-    check-history
 
-    if (products = 30) [
-      show "Success!"
-      set failCounter failCounter + products
-      type products type "/" type failCounter print ""
+to generate-single-item
+  ask n-of (random 3 + 4) patches [ set pcolor orange ]
+  ask n-of (random 3 + 4) patches [ set pcolor red ]
+  ask n-of (random 3 + 4) patches [ set pcolor green ]
+  ask n-of (random 3 + 4) patches [ set pcolor blue ]
+  ask n-of (random 3 + 4) patches [ set pcolor yellow ]
+  ask n-of (random 3 + 4) patches [ set pcolor grey ]
+  ask n-of (random 3 + 4) patches [ set pcolor white ]
+end
 
-      ask patch 6 6 [
-        set pcolor green
-      ]
-      stop
+to move-around
+  if empty? color-map [ stop ]
+
+  let min-distance 9999
+  let target-pos []
+
+  foreach store-layout [
+    xy ->
+    let current-dist distance(patch item 0 xy item 1 xy)
+    if (current-dist < min-distance) and (member? [pcolor] of patch item 0 xy item 1 xy color-map) [
+      set min-distance current-dist
+      set target-pos xy
     ]
+  ]
 
-    if ticks mod 2 = 0 [
-      new-product
+  ifelse (target-pos != []) [
+    let new-x (item 0 target-pos)
+    let new-y (item 1 target-pos)
+    wait 1
+    facexy new-x new-y
+    ifelse (distancexy new-x new-y) > 1 [
+      fd 1
+    ] [
+      fd distancexy new-x new-y
     ]
-
-    tick
   ] [
     stop
   ]
 end
 
 
-to walk
-  if ycor = -3 [
-    ifelse xcor = 6 [
-      if color != red [
-        set products products + 1
-        type "Good product No. " type products print ""
-      ]
+to create-store-layout
+  let min-x -8
+  let max-x 8
+  let min-y -6
+  let max-y 6
+  let store-positions []
 
-      ifelse color = red [
-        set failCounter failCounter + 1
-        set history lput 0 history
-        setxy badx bady
-
-        ifelse bady = -1 [
-          set badx badx - 1
-          set bady 5
-        ] [
-          set bady bady - 1
-        ]
+  ;; Generate a list of all possible locations
+  foreach (range min-x max-x) [xpos ->
+    foreach (range min-y max-y) [ypos ->
+      ifelse (member? [pcolor] of patch xpos ypos color-map) [
+        set store-positions lput (list xpos ypos) store-positions
       ] [
-        set history lput 1 history
-        die
+        set store-positions lput [] store-positions
       ]
-    ] [
-      fd 1
     ]
   ]
+
+  ;; Remove empty locations from the list
+  set store-positions filter [pos -> not empty? pos] store-positions
+
+  ;; Set store-layout based on filtered locations
+  set store-layout store-positions
 end
 
-to new-product
-  create-turtles 1 [
-    set color one-of remove gray base-colors
-    set new-products new-products + 1
-    set shape "crate"
-    setxy -6 -3
-    set heading 90
-  ]
-end
 
-to draw-track
-  ask patches at-points [[-6 -3] [-5 -3] [-4 -3] [-3 -3] [-2 -3] [-1 -3] [0 -3] [1 -3] [2 -3] [3 -3] [4 -3] [5 -3] [6 -3]] [ set pcolor grey ]
-end
 
-to check-history
-  ifelse (products >= 30) or (failCounter >= 3) [
-    ifelse (failCounter >= 3) [
-      ask patch 6 6 [ set pcolor red ]
-      show "Fail"
-    ] [
-      ask patch 6 6 [ set pcolor green ]
-      show "Success!"
+
+to buy-item
+  let current-color [pcolor] of patch-here
+  let color-key ""
+
+  if current-color = black [stop]  ;; Avoid black color
+
+  ;; Find the appropriate key for the color
+  ;; (use it for checking the shopping list and cart)
+  ;; Add new colors as needed
+  ifelse current-color = orange [set color-key "Orange"]
+  [ ifelse current-color = red [set color-key "Red"]
+    [ ifelse current-color = green [set color-key "Green"]
+      [ ifelse current-color = blue [set color-key "Blue"]
+        [ ifelse current-color = grey [set color-key "Grey"]
+          [ ifelse current-color = yellow [set color-key "Yellow"]
+            [ ifelse current-color = white [set color-key "White"]
+              [ set color-key ""] ;; In case of unexpected color, set key to empty string
+            ]
+          ]
+        ]
+      ]
     ]
-    set stop-flag TRUE
-  ] [
+  ]
+
+  ;; Check if the color is found in the shopping list and add to cart
+  if (color-key != "") and (member? color-key shopping-list) and not (member? color-key shopping-cart) [
+    show "Item found!"
+    wait 1
+    set shopping-cart lput color-key shopping-cart
+    set pcolor black
+    set store-layout remove-item idx store-layout
+    set color-map remove current-color color-map
+    show shopping-cart
   ]
 end
+
 
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-608
+728
 409
 -1
 -1
@@ -124,22 +187,22 @@ GRAPHICS-WINDOW
 1
 1
 1
--6
-6
+-8
+8
 -6
 6
 0
 0
 1
 ticks
-10.0
+30.0
 
 BUTTON
-15
-59
-78
-92
-setup
+12
+77
+75
+110
+NIL
 setup
 NIL
 1
@@ -152,10 +215,10 @@ NIL
 1
 
 BUTTON
-88
-60
-151
-93
+82
+76
+145
+109
 NIL
 go
 T
@@ -168,41 +231,35 @@ NIL
 NIL
 1
 
-BUTTON
-36
-105
-137
-138
-new product
-new-product
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
 @#$#@#$#@
-## OPIS MODELA
+## PRIMJER 08
 
-Primjer simulira rad agenta koji nadgleda proizvodnu traku i proizvode na njoj. 
+Primjer opisuje rada genta usmjerenog prema cilju.
+Agent pokreće _pametna_ kolica u trgovini koja imaju pohranjenen popis za kupovinu (odnosno _**cilj**_)
 
-Pritiskom na tipku *new product* na traci se pojavljuje novi proizvod.
+## KLASIFIKACIJA REALIZIRANOG AGENTA
 
-Agent registira neispravne proizvode (obojene crvenom bojom) i ispraven proizvode (obojene nekom drugom bojom) kada dođu do kraja proizvodne trake. Ispravni proizvodi se uklanjaju sa ekrana, a neispravni zadržavaju na ekranu.
+Primjer opisuje rad agenta usmjerenog prema cilju koji upravlja pametnim kolicima u trgovini i obavlja kupovinu u skladu sa slučajno generiranim popisom za kupovinu.
+Kada senzori agenta opaze da su kolica naišla na artikl u trgovini, agent provjerava nalazi li se taj artikl na popisu i u tom slučaju stavlja ga u kolica. 
+Ukoliko na poziciji kolica nema artikla, ili se nalazi artikl koji nije na popisu za kupovinu, kolica nastavljaju kretanje.
+Agent koji upravlja pametnim kolicima u trgovini ima zadani cilj, tj. inicijalizirani popis za kupovinu. Informacija o cilju djelovanja opisuje poželjne situacije, u ovom slučaju artikle s popisa, i na taj način omogućava agentu da između više mogućnosti odabere onu koja vodi ka ciljanom stanju. 
+Ukoliko agent pronašađe artikal koji je na popisu za kupovinu, a nije već ranije dodan u kolica, uzima ga. 
 
-Seriju proizvoda čini 30 proizvoda i ako je manje od 10% proizvoda neispravno serija se smatra uspješnom, a ako je 10% ili više neispravnih proizvoda serija se smatra. neuspješnom.   
+## KAKO MODEL RADI
 
-## VRSTA OKRUŽENJA
-Po kriteriju **epizodičnosti** ovo okruženje je **sekvencijalno** jer buduće odluke agenta ovise o akcijama koje je agent prethodno poduzeo, odnosno trenutna akcija ima dugoročne posljedice.
+Pritiskom na upravljačko dugme _**setup**_ postavlja se početno stanje simulacijskog modela sa _artiklima_ slučajno razmještenom po modelu trgovine, predstavljenima obojanim dijelovima okruženja.
+U donji lijevi kut modela postavljena su pametna kolica za kupovinu i usmjerena su u desno.
+Funkcija _**walk**_ simulira kretanje kolica od donjeg lijevog ka gornjem desnom kutu, pri čemu obilazi sve dijelove okruženja. Simulacija se zaustavlja u trenutku kad kolica dođu u gornji desni kut modela.
+Funkcija _**shop**_ simulira provjeru je li artikal na kojeg su kolica naišla potrebno _kupiti_ i njegovu _kupovinu_ realiziranu bojanjem tog dijela trgovinee u _crnu boju_.
+ 
 
-U ovom primjeru zaustavlja se proizvodnja u trenutku kad je serija označena kao neispravna (10% neispravnih proizvoda).  
+## OBRATITI PAŽNJU NA
 
-## KAKO KORISTITI MODEL
-Potrebno je podesiti brzinu izmjene otkucaja (klizač *ticks* iznad prozora simulacije) kako bi se mogla pratiti simulacija.
+Tijek vremena predstavljen je otkucajima (engl. _ticks_)
+
+## POKUŠAJTE
+
+Prilagodite brzinu otkucaja pomjeranjem klizača iznad "svijeta" simulacijskog modela.
 @#$#@#$#@
 default
 true
@@ -277,20 +334,6 @@ false
 Polygon -7500403 true true 200 193 197 249 179 249 177 196 166 187 140 189 93 191 78 179 72 211 49 209 48 181 37 149 25 120 25 89 45 72 103 84 179 75 198 76 252 64 272 81 293 103 285 121 255 121 242 118 224 167
 Polygon -7500403 true true 73 210 86 251 62 249 48 208
 Polygon -7500403 true true 25 114 16 195 9 204 23 213 25 200 39 123
-
-crate
-false
-0
-Rectangle -7500403 true true 45 45 255 255
-Rectangle -16777216 false false 45 45 255 255
-Rectangle -16777216 false false 60 60 240 240
-Line -16777216 false 180 60 180 240
-Line -16777216 false 150 60 150 240
-Line -16777216 false 120 60 120 240
-Line -16777216 false 210 60 210 240
-Line -16777216 false 90 60 90 240
-Polygon -7500403 true true 75 240 240 75 240 60 225 60 60 225 60 240
-Polygon -16777216 false false 60 225 60 240 75 240 240 75 240 60 225 60
 
 cylinder
 false
@@ -496,13 +539,6 @@ Polygon -10899396 true false 105 90 75 75 55 75 40 89 31 108 39 124 60 105 75 10
 Polygon -10899396 true false 132 85 134 64 107 51 108 17 150 2 192 18 192 52 169 65 172 87
 Polygon -10899396 true false 85 204 60 233 54 254 72 266 85 252 107 210
 Polygon -7500403 true true 119 75 179 75 209 101 224 135 220 225 175 261 128 261 81 224 74 135 88 99
-
-vacuum
-true
-0
-Polygon -7500403 true true 30 135 150 135 240 135 255 225 240 225 210 225 210 195 210 225 135 225 135 225 135 225 135 225 90 225 90 195 60 195 60 225 15 225 30 135
-Circle -13345367 true false 45 180 60
-Circle -13345367 true false 165 180 60
 
 wheel
 false

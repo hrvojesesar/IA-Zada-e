@@ -1,111 +1,64 @@
-globals [new-products products badx bady history stop-flag failCounter]
+globals [dirt-count]
 
 to setup
   clear-all
-  set new-products 0
-  set products 0
-  set failCounter 0
-  set stop-flag FALSE
-  set badx 6
-  set bady 5
-  set history []
+  set dirt-count 0
 
-  ask patch 6 6 [
-    set pcolor green
+  create-turtles 1 [
+    set shape "bulldozer top"
   ]
 
-  draw-track
+  ask turtles [
+    setxy -6 -6
+    set color blue
+    set heading 90
+  ]
+
+  ask n-of 15 patches [
+    set pcolor grey
+  ]
+
   reset-ticks
 end
 
 to go
-  ifelse not stop-flag [
+  while [any? patches with [pcolor = grey]] [
     ask turtles [
-      walk
+      intelligent-move
+      clean
     ]
-
-    set history sort history
-    check-history
-
-    if (products = 30) [
-      show "Success!"
-      set failCounter failCounter + products
-      type products type "/" type failCounter print ""
-
-      ask patch 6 6 [
-        set pcolor green
-      ]
-      stop
-    ]
-
-    if ticks mod 2 = 0 [
-      new-product
-    ]
-
+    generate-dirt
     tick
-  ] [
-    stop
   ]
+  show "Done!"
+  stop
 end
 
+to intelligent-move
+  let nearest-dirt min-one-of patches with [pcolor = grey] [distance myself]
+  face nearest-dirt
+  fd 1
+end
 
-to walk
-  if ycor = -3 [
-    ifelse xcor = 6 [
-      if color != red [
-        set products products + 1
-        type "Good product No. " type products print ""
-      ]
-
-      ifelse color = red [
-        set failCounter failCounter + 1
-        set history lput 0 history
-        setxy badx bady
-
-        ifelse bady = -1 [
-          set badx badx - 1
-          set bady 5
-        ] [
-          set bady bady - 1
-        ]
-      ] [
-        set history lput 1 history
-        die
-      ]
-    ] [
-      fd 1
+to clean
+  ifelse [pcolor] of patch-here = grey [
+     set dirt-count dirt-count + 1
+    type (word "Dirt: " dirt-count) print ""
+    wait 0.3
+    set pcolor black
+  ] [
+    if (xcor = 6) and (ycor = 6) [
+      setxy -6 -6
     ]
   ]
 end
 
-to new-product
-  create-turtles 1 [
-    set color one-of remove gray base-colors
-    set new-products new-products + 1
-    set shape "crate"
-    setxy -6 -3
-    set heading 90
+to generate-dirt
+  let dirt-probability random 100
+  if dirt-probability >= 95 [
+    ask n-of 1 patches with [pcolor != grey] [set pcolor grey]
   ]
 end
-
-to draw-track
-  ask patches at-points [[-6 -3] [-5 -3] [-4 -3] [-3 -3] [-2 -3] [-1 -3] [0 -3] [1 -3] [2 -3] [3 -3] [4 -3] [5 -3] [6 -3]] [ set pcolor grey ]
-end
-
-to check-history
-  ifelse (products >= 30) or (failCounter >= 3) [
-    ifelse (failCounter >= 3) [
-      ask patch 6 6 [ set pcolor red ]
-      show "Fail"
-    ] [
-      ask patch 6 6 [ set pcolor green ]
-      show "Success!"
-    ]
-    set stop-flag TRUE
-  ] [
-  ]
-end
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -132,13 +85,13 @@ GRAPHICS-WINDOW
 0
 1
 ticks
-10.0
+30.0
 
 BUTTON
-15
-59
-78
-92
+25
+74
+88
+107
 setup
 setup
 NIL
@@ -152,30 +105,13 @@ NIL
 1
 
 BUTTON
-88
-60
-151
-93
-NIL
+99
+74
+162
+107
+go
 go
 T
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-BUTTON
-36
-105
-137
-138
-new product
-new-product
-NIL
 1
 T
 OBSERVER
@@ -188,21 +124,21 @@ NIL
 @#$#@#$#@
 ## OPIS MODELA
 
-Primjer simulira rad agenta koji nadgleda proizvodnu traku i proizvode na njoj. 
+Primjer simulira rad agenta koji pokreće usisivač u pravokutnoj prostoriji. Na početku se postavlja "prljavština" u 15 nasumično odabranih ćelija prostorije (tj. ćelije se oboje sivo). 
 
-Pritiskom na tipku *new product* na traci se pojavljuje novi proizvod.
+Ukoliko usisivač, prilikom kretanja, naiđe na prljavštinu očisti je (tj. ćelija se oboji crno) i ispisuje se poruka o pronađenoj prljavštini. Nasumično se u prostoriji pojavljuje nova prljavština. Nakon obilaska cijele prostorije usisivač se vraća na početnu poziciju i nastavlja sa čišćenjem.  
 
-Agent registira neispravne proizvode (obojene crvenom bojom) i ispraven proizvode (obojene nekom drugom bojom) kada dođu do kraja proizvodne trake. Ispravni proizvodi se uklanjaju sa ekrana, a neispravni zadržavaju na ekranu.
-
-Seriju proizvoda čini 30 proizvoda i ako je manje od 10% proizvoda neispravno serija se smatra uspješnom, a ako je 10% ili više neispravnih proizvoda serija se smatra. neuspješnom.   
+Nakon što usisivač počisti cijelu prostoriju, simulacija se zaustavlja.  
 
 ## VRSTA OKRUŽENJA
-Po kriteriju **epizodičnosti** ovo okruženje je **sekvencijalno** jer buduće odluke agenta ovise o akcijama koje je agent prethodno poduzeo, odnosno trenutna akcija ima dugoročne posljedice.
 
-U ovom primjeru zaustavlja se proizvodnja u trenutku kad je serija označena kao neispravna (10% neispravnih proizvoda).  
+Po kriteriju **determinističnosti** ovo je **stohastičko** okruženje jer nakon primjene određene akcije agenta postoji nesigurnost oko novog stanja okruženja. 
 
+U ovom primjeru nesigurnost je uzrokovana nasumičnim pojavljivanjem dodatne prljavštine u prostoriji.
+  
 ## KAKO KORISTITI MODEL
-Potrebno je podesiti brzinu izmjene otkucaja (klizač *ticks* iznad prozora simulacije) kako bi se mogla pratiti simulacija.
+
+Potrebno je smanjiti brzinu izmjene otkucaja (klizač *ticks* iznad prozora simulacije) kako bi se mogla pratiti simulacija.
 @#$#@#$#@
 default
 true
@@ -237,6 +173,38 @@ Circle -7500403 true true 110 127 80
 Circle -7500403 true true 110 75 80
 Line -7500403 true 150 100 80 30
 Line -7500403 true 150 100 220 30
+
+bulldozer top
+true
+0
+Rectangle -7500403 true true 195 60 255 255
+Rectangle -16777216 false false 195 60 255 255
+Rectangle -7500403 true true 45 60 105 255
+Rectangle -16777216 false false 45 60 105 255
+Line -16777216 false 45 75 255 75
+Line -16777216 false 45 105 255 105
+Line -16777216 false 45 60 255 60
+Line -16777216 false 45 240 255 240
+Line -16777216 false 45 225 255 225
+Line -16777216 false 45 195 255 195
+Line -16777216 false 45 150 255 150
+Polygon -1184463 true true 90 60 75 90 75 240 120 255 180 255 225 240 225 90 210 60
+Polygon -16777216 false false 225 90 210 60 211 246 225 240
+Polygon -16777216 false false 75 90 90 60 89 246 75 240
+Polygon -16777216 false false 89 247 116 254 183 255 211 246 211 211 90 210
+Rectangle -16777216 false false 90 60 210 90
+Rectangle -1184463 true true 180 30 195 90
+Rectangle -16777216 false false 105 30 120 90
+Rectangle -1184463 true true 105 45 120 90
+Rectangle -16777216 false false 180 45 195 90
+Polygon -16777216 true false 195 105 180 120 120 120 105 105
+Polygon -16777216 true false 105 199 120 188 180 188 195 199
+Polygon -16777216 true false 195 120 180 135 180 180 195 195
+Polygon -16777216 true false 105 120 120 135 120 180 105 195
+Line -1184463 true 105 165 195 165
+Circle -16777216 true false 113 226 14
+Polygon -1184463 true true 105 15 60 30 60 45 240 45 240 30 195 15
+Polygon -16777216 false false 105 15 60 30 60 45 240 45 240 30 195 15
 
 butterfly
 true
@@ -277,20 +245,6 @@ false
 Polygon -7500403 true true 200 193 197 249 179 249 177 196 166 187 140 189 93 191 78 179 72 211 49 209 48 181 37 149 25 120 25 89 45 72 103 84 179 75 198 76 252 64 272 81 293 103 285 121 255 121 242 118 224 167
 Polygon -7500403 true true 73 210 86 251 62 249 48 208
 Polygon -7500403 true true 25 114 16 195 9 204 23 213 25 200 39 123
-
-crate
-false
-0
-Rectangle -7500403 true true 45 45 255 255
-Rectangle -16777216 false false 45 45 255 255
-Rectangle -16777216 false false 60 60 240 240
-Line -16777216 false 180 60 180 240
-Line -16777216 false 150 60 150 240
-Line -16777216 false 120 60 120 240
-Line -16777216 false 210 60 210 240
-Line -16777216 false 90 60 90 240
-Polygon -7500403 true true 75 240 240 75 240 60 225 60 60 225 60 240
-Polygon -16777216 false false 60 225 60 240 75 240 240 75 240 60 225 60
 
 cylinder
 false
@@ -367,6 +321,38 @@ Rectangle -7500403 true true 45 120 255 285
 Rectangle -16777216 true false 120 210 180 285
 Polygon -7500403 true true 15 120 150 15 285 120
 Line -16777216 false 30 120 270 120
+
+lander
+true
+0
+Polygon -7500403 true true 45 75 150 30 255 75 285 225 240 225 240 195 210 195 210 225 165 225 165 195 135 195 135 225 90 225 90 195 60 195 60 225 15 225 45 75
+
+lander 2
+true
+0
+Polygon -7500403 true true 135 205 120 235 180 235 165 205
+Polygon -16777216 false false 135 205 120 235 180 235 165 205
+Line -7500403 true 75 30 195 30
+Polygon -7500403 true true 195 150 210 165 225 165 240 150 240 135 225 120 210 120 195 135
+Polygon -16777216 false false 195 150 210 165 225 165 240 150 240 135 225 120 210 120 195 135
+Polygon -7500403 true true 75 75 105 45 195 45 225 75 225 135 195 165 105 165 75 135
+Polygon -16777216 false false 75 75 105 45 195 45 225 75 225 120 225 135 195 165 105 165 75 135
+Polygon -16777216 true false 217 90 210 75 180 60 180 90
+Polygon -16777216 true false 83 90 90 75 120 60 120 90
+Polygon -16777216 false false 135 165 120 135 135 75 150 60 165 75 180 135 165 165
+Circle -7500403 true true 120 15 30
+Circle -16777216 false false 120 15 30
+Line -7500403 true 150 0 150 45
+Polygon -1184463 true false 90 165 105 210 195 210 210 165
+Line -1184463 false 210 165 245 239
+Line -1184463 false 237 221 194 207
+Rectangle -1184463 true false 221 245 261 238
+Line -1184463 false 90 165 55 239
+Line -1184463 false 63 221 106 207
+Rectangle -1184463 true false 39 245 79 238
+Polygon -16777216 false false 90 165 105 210 195 210 210 165
+Rectangle -16777216 false false 221 237 262 245
+Rectangle -16777216 false false 38 237 79 245
 
 leaf
 false
@@ -500,9 +486,12 @@ Polygon -7500403 true true 119 75 179 75 209 101 224 135 220 225 175 261 128 261
 vacuum
 true
 0
-Polygon -7500403 true true 30 135 150 135 240 135 255 225 240 225 210 225 210 195 210 225 135 225 135 225 135 225 135 225 90 225 90 195 60 195 60 225 15 225 30 135
-Circle -13345367 true false 45 180 60
-Circle -13345367 true false 165 180 60
+Polygon -13345367 true false 225 270 225 30 105 45 105 255 225 270 225 270
+Circle -5825686 true false 195 195 60
+Circle -5825686 true false 195 45 60
+Rectangle -5825686 true false 45 120 90 240
+Polygon -8630108 true false 60 120 60 90 90 60 105 60 105 75 90 75 75 90 75 120
+Rectangle -8630108 true false 60 135 75 225
 
 wheel
 false

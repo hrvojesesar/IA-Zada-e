@@ -1,7 +1,7 @@
 breed [predators predator]
 breed [preys prey]
 
-globals [border-x border-y border-heading flag]
+globals [border-x border-y borderheading flag x-pos y-pos]
 
 to setup
   clear-all
@@ -9,27 +9,27 @@ to setup
   set flag true
   set border-x -8
   set border-y -6
-  set border-heading 90
+  set borderheading 90
 
-  create-predators 1 [
+  create-predators 1
+  [
     set shape "arrow"
     setxy -8 -6
     set color red
     set heading 90
   ]
-
-  create-preys 3 [
+  create-preys 3
+  [
     set shape "circle"
     setxy random-xcor random-ycor
   ]
-
   reset-ticks
 end
 
 to go
   ask predators [predator-walk]
   ask preys [prey-walk]
-  reproduce-circles
+  reproduce-agents
   tick
 end
 
@@ -40,70 +40,58 @@ to predator-walk
     set flag false
     let target one-of nearby-preys
     face target
-    ifelse any? nearby-preys with [distance target <= 1.5] [
-      ask target [die]
-    ] [
+    ifelse distance target <= 1.5 [
+      ask target [
+        die
+      ]
+    ]
+    [
       fd 1
     ]
   ]
-
   if not any? nearby-preys and flag = false [
-    move-to-border
+    facexy border-x border-y
+    ifelse (distancexy border-x border-y) > 1 [
+      fd 1
+    ]
+    [
+      fd distancexy border-x border-y
+      set heading borderheading
+      set xcor border-x
+      set ycor border-y
+      set flag true
+    ]
   ]
 
   if flag = true [
-    check-border
+    if (xcor = 8) and (ycor = -6) [
+      set heading 0
+    ]
+    if (xcor = 8) and (ycor = 6) [
+      set heading 270
+    ]
+    if (xcor = -8) and (ycor = 6) [
+      set heading 180
+    ]
+    if (xcor = -8) and (ycor = -6) [
+      set heading 90
+    ]
     fd 1
-  ]
-end
-
-
-to move-to-border
-  facexy border-x border-y
-  let distance-to-border distancexy border-x border-y
-
-  ifelse distance-to-border > 1 [
-    fd 1
-  ] [
-    move-to-predicted-border
-  ]
-end
-
-to move-to-predicted-border
-  fd distancexy border-x border-y
-  setxy border-x border-y
-  set heading border-heading
-  set flag true
-end
-
-to check-border
-  if (xcor = 8) and (ycor = -6) [
-    set heading 0
-  ]
-  if (xcor = 8) and (ycor = 6) [
-    set heading 270
-  ]
-  if (xcor = -8) and (ycor = 6) [
-    set heading 180
-  ]
-  if (xcor = -8) and (ycor = -6) [
-    set heading 90
+    set border-x xcor
+    set border-y ycor
+    set borderheading heading
   ]
 end
 
 to prey-walk
-  if (random 5 = 0) [
-    random-rotate-prey
+  if (ticks mod 5 = 0) [
+    rt random 360 ;
   ]
   fd 1
 end
 
-to random-rotate-prey
-  rt random 360
-end
-
-to reproduce-circles
-  if (random 100 < 3) [
+to reproduce-agents
+  if random 100 < 3 [
     create-preys 1 [
       setxy random-xcor random-ycor
       set shape "circle"

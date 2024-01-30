@@ -11,7 +11,7 @@ to setup
     set shape "arrow"
     set size 1
     set color red
-    setxy -8 -6
+    setxy -8 6
     set heading 0
 
   ]

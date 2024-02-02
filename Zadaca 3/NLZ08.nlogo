@@ -42,7 +42,7 @@ to setup
 
   ]
 
-  create-circle 2[
+  create-circle 3[
   set shape "circle"
     set color blue
     set size 1
@@ -59,7 +59,7 @@ to go
   ask circle[
     circle-walk
   ]
-
+  reproduce-agents
   tick
 end
 
@@ -133,6 +133,15 @@ end
 to circle-walk
   set heading random 360
   fd 1
+end
+
+to reproduce-agents
+  if random 100 < 3 [
+    create-circle 1 [
+      setxy random-xcor random-ycor
+      set shape "circle"
+    ]
+  ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
